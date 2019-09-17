@@ -62,7 +62,7 @@ print(algorithms, state_space_sizes, action_space_sizes, delays, sequence_length
 # fout = open('rl_stats_temp.csv', 'a') #hardcoded
 # fout.write('# basename, n_points, n_features, n_trees ')
 
-hack_filename = csv_stats_file
+hack_filename = csv_stats_file + '.csv'
 fout = open(hack_filename, 'a') #hardcoded
 fout.write('# Algorithm, state_space_size, action_space_size, delay, sequence_length, reward_density, '
            'terminal_state_density, dummy_seed,\n')
@@ -103,7 +103,7 @@ def on_train_result(info):
     fout.close()
 
     # print("###HACK info object:", info)
-    hack_filename_eval = csv_stats_file
+    hack_filename_eval = csv_stats_file + '_eval.csv'
     fout = open(hack_filename_eval, 'a') #hardcoded
     fout.write('#HACK STRING EVAL' + "\n")
     fout.close()
@@ -120,7 +120,7 @@ def on_episode_end(info):
         print("###on_episode_end info", info["env"].get_unwrapped()[0].config["make_denser"], info["episode"].total_reward, info["episode"].length) #, info["episode"]._agent_reward_history)
         reward_this_episode = info["episode"].total_reward
         length_this_episode = info["episode"].length
-        hack_filename_eval = csv_stats_file
+        hack_filename_eval = csv_stats_file + '_eval.csv'
         fout = open(hack_filename_eval, 'a') #hardcoded
         fout.write(str(reward_this_episode) + ' ' + str(length_this_episode) + "\n")
         fout.close()
