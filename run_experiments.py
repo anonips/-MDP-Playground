@@ -20,7 +20,31 @@ register_env("RLToy-v0", lambda config: RLToyEnv(config))
 
 import sys, os
 print("Arguments", sys.argv) # Ray problems: writing to output file (could be fixed with IOContext?); fine-grained control over NN arch.; random seeds; env steps per algo.)
-csv_stats_file = sys.argv[1]
+import argparse
+import configparser
+
+parser = argparse.ArgumentParser(description='Run experiments for MDP Playground')
+parser.add_argument('--config-file', dest='config_file', action='store', default='default_config',
+                   help='Configuration file containing configuration space to run. It must be a Python file so config can be given programmatically. '
+                   'Remove the .py extension when providing the filename. See default_config.py for an example.')
+parser.add_argument('--output-file', dest='csv_stats_file', action='store', default='temp234',
+                   help='Prefix of output file. It will save stats to 2 CSV files, with the filenames as the one given as argument'
+                   'and another file with an extra "_eval" in the filename that contains evaluation stats during the training. Appends to existing files or creates new ones if they don\'t exist.')
+
+args = parser.parse_args()
+print("Parsed args:", args)
+
+import importlib
+config = importlib.import_module(args.config_file, package=None)
+print(config.num_seeds)
+
+# Did not do ConfigParser or JSON because I want to give config programmatically
+# config = configparser.ConfigParser()
+# config.read(args.config_file)
+# print(config.sections(), [i for i in config['ConfigSpace']])
+
+# import json
+# print([json.loads(config['ConfigSpace'][i]) for i in config['ConfigSpace']])
 
 from ray.rllib.models.preprocessors import OneHotPreprocessor
 from ray.rllib.models import ModelCatalog
@@ -30,43 +54,43 @@ ModelCatalog.register_custom_preprocessor("ohe", OneHotPreprocessor)
 ray.init(local_mode=True)#, object_id_seed=0)
 
 
-num_seeds = 10
-state_space_sizes = [8]#, 10, 12, 14] # [2**i for i in range(1,6)]
-action_space_sizes = [8]#2, 4, 8, 16] # [2**i for i in range(1,6)]
-delays = [0] + [2**i for i in range(4)]
-sequence_lengths = [1, 2, 3, 4]#i for i in range(1,4)]
-reward_densities = [0.25] # np.linspace(0.0, 1.0, num=5)
-# make_reward_dense = [True, False]
-terminal_state_densities = [0.25] # np.linspace(0.1, 1.0, num=5)
-algorithms = ["DQN"]
-seeds = [i for i in range(num_seeds)]
-# Others, keep the rest fixed for these: learning_starts, target_network_update_freq, double_dqn, fcnet_hiddens, fcnet_activation, use_lstm, lstm_seq_len, sample_batch_size/train_batch_size, learning rate
-# More others: adam_epsilon, exploration_final_eps/exploration_fraction, buffer_size
-num_layerss = [1, 2, 3, 4]
-layer_widths = [8, 32, 128]
-fcnet_activations = ["tanh", "relu", "sigmoid"]
-learning_startss = [500, 1000, 2000, 4000, 8000]
-target_network_update_freqs = [8, 80, 800]
-double_dqn = [False, True]
-learning_rates = []
+# num_seeds = 10
+# state_space_sizes = [8]#, 10, 12, 14] # [2**i for i in range(1,6)]
+# action_space_sizes = [8]#2, 4, 8, 16] # [2**i for i in range(1,6)]
+# delays = [0] + [2**i for i in range(4)]
+# sequence_lengths = [1, 2, 3, 4]#i for i in range(1,4)]
+# reward_densities = [0.25] # np.linspace(0.0, 1.0, num=5)
+# # make_reward_dense = [True, False]
+# terminal_state_densities = [0.25] # np.linspace(0.1, 1.0, num=5)
+# algorithms = ["DQN"]
+# seeds = [i for i in range(num_seeds)]
+# # Others, keep the rest fixed for these: learning_starts, target_network_update_freq, double_dqn, fcnet_hiddens, fcnet_activation, use_lstm, lstm_seq_len, sample_batch_size/train_batch_size, learning rate
+# # More others: adam_epsilon, exploration_final_eps/exploration_fraction, buffer_size
+# num_layerss = [1, 2, 3, 4]
+# layer_widths = [8, 32, 128]
+# fcnet_activations = ["tanh", "relu", "sigmoid"]
+# learning_startss = [500, 1000, 2000, 4000, 8000]
+# target_network_update_freqs = [8, 80, 800]
+# double_dqn = [False, True]
+# learning_rates = []
 
 # lstm with sequence lengths
 
-print('# Algorithm, state_space_size, action_space_size, delay, sequence_length, reward_density,'
-               'terminal_state_density ')
-print(algorithms, state_space_sizes, action_space_sizes, delays, sequence_lengths, reward_densities, terminal_state_densities)
+print('# Algorithm, state_space_size, action_space_size, delay, sequence_length, reward_density, terminal_state_density ')
+print(config.algorithms, config.state_space_sizes, config.action_space_sizes, config.delays, config.sequence_lengths, config.reward_densities, config.terminal_state_densities)
 
 
 
-#TODO Write addnl. line at beginning of file for column names
+#TODO Write addnl. line at beginning of file for column names for eval file
 # fout = open('rl_stats_temp.csv', 'a') #hardcoded
 # fout.write('# basename, n_points, n_features, n_trees ')
 
-hack_filename = csv_stats_file + '.csv'
+hack_filename = args.csv_stats_file + '.csv'
 fout = open(hack_filename, 'a') #hardcoded
-fout.write('# Algorithm, state_space_size, action_space_size, delay, sequence_length, reward_density, '
-           'terminal_state_density, dummy_seed,\n')
+fout.write('# Algorithm, state_space_size, action_space_size, delay, sequence_length, reward_density, terminal_state_density, dummy_seed,\n')
 fout.close()
+
+# sys.exit(0)
 
 import time
 start = time.time()
@@ -103,7 +127,7 @@ def on_train_result(info):
     fout.close()
 
     # print("###HACK info object:", info)
-    hack_filename_eval = csv_stats_file + '_eval.csv'
+    hack_filename_eval = args.csv_stats_file + '_eval.csv'
     fout = open(hack_filename_eval, 'a') #hardcoded
     fout.write('#HACK STRING EVAL' + "\n")
     fout.close()
@@ -120,20 +144,20 @@ def on_episode_end(info):
         print("###on_episode_end info", info["env"].get_unwrapped()[0].config["make_denser"], info["episode"].total_reward, info["episode"].length) #, info["episode"]._agent_reward_history)
         reward_this_episode = info["episode"].total_reward
         length_this_episode = info["episode"].length
-        hack_filename_eval = csv_stats_file + '_eval.csv'
+        hack_filename_eval = args.csv_stats_file + '_eval.csv'
         fout = open(hack_filename_eval, 'a') #hardcoded
         fout.write(str(reward_this_episode) + ' ' + str(length_this_episode) + "\n")
         fout.close()
 
 
-for algorithm in algorithms:
-    for state_space_size in state_space_sizes:
-        for action_space_size in action_space_sizes:
-            for delay in delays:
-                for sequence_length in sequence_lengths:
-                    for reward_density in reward_densities:
-                        for terminal_state_density in terminal_state_densities:
-                            for dummy_seed in seeds:
+for algorithm in config.algorithms: #TODO each one has different config_spaces
+    for state_space_size in config.state_space_sizes:
+        for action_space_size in config.action_space_sizes:
+            for delay in config.delays:
+                for sequence_length in config.sequence_lengths:
+                    for reward_density in config.reward_densities:
+                        for terminal_state_density in config.terminal_state_densities:
+                            for dummy_seed in config.seeds: #TODO Different seeds for Ray Trainer (TF, numpy, Python; Torch, Env), Environment (it has multiple sources of randomness too), Ray Evaluator
                                 tune.run(
                                     algorithm,
                                     stop={
